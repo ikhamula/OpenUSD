@@ -354,6 +354,16 @@ def AppendCXX11ABIArg(buildFlag, context, buildArgs):
     buildArgs.append('{flag}="{flags}"'.format(
         flag=buildFlag, flags=" ".join(cxxFlags)))
 
+def FormatMultiProcs(numJobs, generator):
+    tag = "-j"
+    if generator:
+        if "Visual Studio" in generator:
+            tag = "/M:" # This will build multiple projects at once.
+        elif "Xcode" in generator:
+            tag = "-j "
+
+    return "{tag}{procs}".format(tag=tag, procs=numJobs)
+
 def RunCMake(context, force, extraArgs = None):
     """Invoke CMake to configure, build, and install a library whose 
     source code is located in the current working directory."""
@@ -393,8 +403,9 @@ def RunCMake(context, force, extraArgs = None):
     if generator is not None:
         generator = '-G "{gen}"'.format(gen=generator)
 
+    # EMSCRIPTEN doesn't use VS On Windows
     # Note - don't want to add -A (architecture flag) if generator is, ie, Ninja
-    if IsVisualStudio2019OrGreater() and "Visual Studio" in generator:
+    if not context.emscriptenBuild and IsVisualStudio2019OrGreater() and "Visual Studio" in generator:
         generator = generator + " -A " + GetWindowsHostArch()
 
     toolset = context.cmakeToolset
@@ -438,7 +449,8 @@ def RunCMake(context, force, extraArgs = None):
     AppendCXX11ABIArg("-DCMAKE_CXX_FLAGS", context, extraArgs)
 
     with CurrentWorkingDirectory(buildDir):
-        Run('cmake '
+        Run(('{} '.format('emcmake.bat' if Windows() else 'emcmake') if context.emscriptenBuild else '') +
+            'cmake '
             '-DCMAKE_INSTALL_PREFIX="{instDir}" '
             '-DCMAKE_PREFIX_PATH="{depsInstDir}" '
             '-DCMAKE_BUILD_TYPE={config} '
@@ -459,8 +471,14 @@ def RunCMake(context, force, extraArgs = None):
         # As of CMake 3.12, the -j parameter for `cmake --build` allows
         # specifying the number of parallel build jobs, forwarding it to the
         # underlying native build tool.
-        Run("cmake --build . --config {config} --target install -j {numJobs}"
-            .format(config=config, numJobs=context.numJobs))
+		
+        # Run("cmake --build . --config {config} --target install -j {numJobs}"
+        #    .format(config=config, numJobs=context.numJobs))
+        
+        Run(('{} '.format('emmake.bat' if Windows() else 'emmake') if context.emscriptenBuild else '') +
+            "cmake --build . --config {config} --target install -- {multiproc}"
+            .format(config=config,
+                    multiproc=FormatMultiProcs(context.numJobs, generator)))
 
 def GetCMakeVersion():
     """
@@ -774,7 +792,7 @@ def InstallBoost_Helper(context, force, buildArgs):
     if IsVisualStudio2022OrGreater():
         BOOST_VERSION = (1, 86, 0)
         BOOST_SHA256 = "cd20a5694e753683e1dc2ee10e2d1bb11704e65893ebcc6ced234ba68e5d8646"
-    elif MacOS():
+    elif MacOS() or context.emscriptenBuild:
         BOOST_VERSION = (1, 82, 0)
         BOOST_SHA256 = "f7c9e28d242abcd7a2c1b962039fcdd463ca149d1883c3a950bbcc0ce6f7c6d9"
     else:
@@ -1006,8 +1024,13 @@ else:
     # Use point release with fix https://github.com/oneapi-src/oneTBB/pull/833
     TBB_URL = "https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2020.3.1.zip"
 
+# Note: this refers to a fork of tbb for wasm. Is this maintained?
+TBB_EMSCRIPTEN_URL = "https://github.com/sdunkel/wasmtbb/archive/refs/heads/master.zip"
+
 def InstallTBB(context, force, buildArgs):
-    if Windows():
+    if context.emscriptenBuild:
+        InstallTBB_Emscripten(context, force, buildArgs)
+    elif Windows():
         InstallTBB_Windows(context, force, buildArgs)
     elif MacOS():
         InstallTBB_MacOS(context, force, buildArgs)
@@ -1158,6 +1181,40 @@ def InstallTBB_Linux(context, force, buildArgs):
         PatchFile("Makefile", [("release", "debug")])
         Run(makeTBBCmd)
 
+        CopyFiles(context, "build/*_release/libtbb*.*", "lib")
+        CopyFiles(context, "build/*_debug/libtbb*.*", "lib")
+        CopyDirectory(context, "include/serial", "include/serial")
+        CopyDirectory(context, "include/tbb", "include/tbb")
+
+def InstallTBB_Emscripten(context, force, buildArgs):
+
+    with CurrentWorkingDirectory(DownloadURL(TBB_EMSCRIPTEN_URL, context, force)):
+        PatchFile("build/linux.emscripten.inc",
+                  [("-DUSE_PTHREAD", "-DUSE_PTHREAD -pthread")],
+                  multiLineMatches=True)
+        
+        # By default no config for other platform is available, but the one for linux
+        # seems to work fine
+        if MacOS():
+            shutil.copy('build/linux.emscripten.inc', 'build/macos.emscripten.inc')
+        elif Windows():
+            shutil.copy('build/linux.emscripten.inc', 'build/windows.emscripten.inc')
+            PatchFile("build/windows.inc",
+                  [("TBB.RES = tbb_resource.res", "TBB.RES =")],
+                  multiLineMatches=True)
+
+        # Run the script from the "x64 Native Tools Command Prompt" of Visual Studio,
+        # to get the correct compiler and arch for TBB Emscripten build on windows
+        Run('{emmake} make -j{procs} arch=wasm32 runtime=emscripten extra_inc=big_iron.inc tbb --debug=b {buildArgs}'
+            .format(emmake="emmake.bat" if Windows() else "emmake",
+                    procs=context.numJobs,
+                    buildArgs=" ".join(buildArgs)))
+
+        # Install both release and debug builds. USD requires the debug
+        # libraries when building in debug mode, and installing both
+        # makes it easier for users to install dependencies in some
+        # location that can be shared by both release and debug USD
+        # builds. Plus, the TBB build system builds both versions anyway.
         CopyFiles(context, "build/*_release/libtbb*.*", "lib")
         CopyFiles(context, "build/*_debug/libtbb*.*", "lib")
         CopyDirectory(context, "include/serial", "include/serial")
@@ -1450,8 +1507,14 @@ def InstallOpenSubdiv(context, force, buildArgs):
             '-DNO_TBB=ON',
         ]
 
+        if context.emscriptenBuild:
+            extraArgs.append('-DBUILD_SHARED_LIB=OFF')
+            extraArgs.append('-DCMAKE_CXX_FLAGS="-pthread"')
+            extraArgs.append('-DCMAKE_C_FLAGS="-pthread"')
+            extraArgs.append('-DNO_OPENGL=ON')
+            extraArgs.append('-DNO_METAL=ON')
         # Use Metal for macOS and all Apple embedded systems.
-        if MacOS():
+        elif MacOS():
             extraArgs.append('-DNO_OPENGL=ON')
 
         # Add on any user-specified extra arguments.
@@ -1838,7 +1901,7 @@ def InstallUSD(context, force, buildArgs):
         else:
             extraArgs.append('-DPXR_BUILD_ANIMX_TESTS=OFF')
 
-        if Windows():
+        if Windows() and not context.emscriptenBuild:
             # Increase the precompiled header buffer limit.
             extraArgs.append('-DCMAKE_CXX_FLAGS="/Zm150"')
 
@@ -1848,6 +1911,28 @@ def InstallUSD(context, force, buildArgs):
 
         extraArgs += buildArgs
 
+        if context.emscriptenBuild:
+            if context.buildUsdImaging:
+                extraArgs.append('-DPXR_ENABLE_WEBGPU_SUPPORT=ON')
+
+            extraArgs.append('-DPXR_ENABLE_JS_SUPPORT=ON')
+            # For some reason we have to manually specify path to boost
+            extraArgs.append('-DBoost_INCLUDE_DIR="{}"'.format(os.path.join(context.usdInstDir, "include")))
+
+            extraArgs.append('-DTBB_INCLUDE_DIRS="{}"'.format(os.path.join(context.usdInstDir, 'include')))
+            extraArgs.append('-DTBB_tbb_LIBRARY_DEBUG="{}"'.format(os.path.join(context.usdInstDir, 'lib/libtbb_debug.a')))
+            extraArgs.append('-DTBB_tbb_LIBRARY_RELEASE="{}"'.format(os.path.join(context.usdInstDir, 'lib/libtbb.a')))
+
+            extraArgs.append('-DOPENSUBDIV_INCLUDE_DIR="{}"'.format(os.path.join(context.usdInstDir, 'include')))
+            extraArgs.append('-DOPENSUBDIV_OSDCPU_LIBRARY="{}"'.format(os.path.join(context.usdInstDir, 'lib/libosdCPU.a')))
+
+            extraArgs.append('-DPXR_ENABLE_GL_SUPPORT=ON')
+            extraArgs.append('-DBUILD_SHARED_LIBS=OFF')
+
+            # if context.emscripten == 'EMSCRIPTEN_NODE':
+            #     extraArgs.append('-DPXR_EMSCRIPTEN_NODE=1')
+            # else:
+            #     extraArgs.append('-DPXR_EMSCRIPTEN_NODE=0')
         RunCMake(context, force, extraArgs)
 
 USD = Dependency("USD", InstallUSD, "include/pxr/pxr.h")
@@ -1935,7 +2020,7 @@ parser.add_argument("-n", "--dry_run", dest="dry_run", action="store_true",
                     help="Only summarize what would happen")
                     
 group = parser.add_mutually_exclusive_group()
-group.add_argument("-v", "--verbose", action="count", default=1,
+group.add_argument("-v", "--verbose", action="count", default=3,
                    dest="verbosity",
                    help="Increase verbosity level (1-3)")
 group.add_argument("-q", "--quiet", action="store_const", const=0,
@@ -2227,6 +2312,12 @@ subgroup.add_argument("--no-animx-tests",
                       dest="build_animx_tests", action="store_false",
                       help="Do not build AnimX spline tests (default)")
 
+group = parser.add_argument_group(title="Build OpenUSD for emscripten")
+subgroup = group.add_mutually_exclusive_group()
+subgroup.add_argument('--emscripten-build',
+                      default=False, dest="emscripten_build", action="store_true",
+                      help='Build OpenUSD for emscripten')
+
 args = parser.parse_args()
 
 class InstallContext:
@@ -2268,6 +2359,13 @@ class InstallContext:
         self.cmakeGenerator = args.generator
         self.cmakeToolset = args.toolset
         self.cmakeBuildArgs = args.cmake_build_args
+		
+		# - Emscripten
+        self.emscriptenBuild = args.emscripten_build
+		
+		# Emscripten only supports MinGW on Windows
+        # if self.emscriptenBuild and Windows():
+        #     self.cmakeGenerator = 'MinGW Makefiles'
 
         # Number of jobs
         self.numJobs = args.jobs
@@ -2417,7 +2515,7 @@ verbosity = args.verbosity
 # they depend on. In particular, this is needed for building IlmBase/OpenEXR.
 extraPaths = []
 extraPythonPaths = []
-if Windows():
+if Windows(): # and not context.emscriptenBuild:
     extraPaths.append(os.path.join(context.instDir, "lib"))
     extraPaths.append(os.path.join(context.instDir, "bin"))
 
@@ -2428,6 +2526,36 @@ if extraPaths:
 if extraPythonPaths:
     paths = os.environ.get('PYTHONPATH', '').split(os.pathsep) + extraPythonPaths
     os.environ['PYTHONPATH'] = os.pathsep.join(paths)
+
+# Disable incompatible options if emscripten is used
+if context.emscriptenBuild:
+    disabled = []
+    if context.buildPython:
+        context.buildPython = False
+        disabled.append('Python')
+
+    if context.buildExamples:
+        context.buildExamples = False
+        disabled.append('examples')
+
+    if context.buildTutorials:
+        context.buildTutorials = False
+        disabled.append('tutorials')
+
+    if context.buildTools:
+        context.buildTools = False
+        disabled.append('tools')
+
+    if context.buildUsdview:
+        context.buildUsdview = False
+        disabled.append('usdview')
+
+    if context.buildMaterialX:
+        context.buildMaterialX = False
+        disabled.append('materialX')
+
+    if len(disabled) > 0:
+        print("The following components were disabled because they are not compatible with emscripten: " + ", ".join(disabled))
 
 # Determine list of dependencies that are required based on options
 # user has selected.
@@ -2476,7 +2604,7 @@ if context.buildAnimXTests:
 # Building zlib is the default when a dependency requires it, although OpenUSD
 # itself does not require it. The --no-zlib flag can be passed to the build
 # script to allow the dependency to find zlib in the build environment.
-if (Linux() or MacOS() or not context.buildZlib) and ZLIB in requiredDependencies:
+if (Linux() or MacOS() or context.emscriptenBuild or not context.buildZlib) and ZLIB in requiredDependencies:
     requiredDependencies = [r for r in requiredDependencies if r != ZLIB]
 
 # Error out if user is building monolithic library on windows with draco plugin
@@ -2554,12 +2682,17 @@ for dep in requiredDependencies:
             dependenciesToBuild.append(dep)
 
 # Verify toolchain needed to build required dependencies
-if (not which("g++") and
-    not which("clang") and
-    not GetXcodeDeveloperDirectory() and
-    not GetVisualStudioCompilerAndVersion()):
-    PrintError("C++ compiler not found -- please install a compiler")
-    sys.exit(1)
+if context.emscriptenBuild:
+    if not which("emcc"):
+        PrintError(" Emscripten compiler emcc not found -- please install a compiler")
+        sys.exit(1)
+else:
+    if (not which("g++") and
+        not which("clang") and
+        not GetXcodeDeveloperDirectory() and
+        not GetVisualStudioCompilerAndVersion()):
+        PrintError(" C++ compiler not found -- please install a compiler")
+        sys.exit(1)
 
 # Error out if a 64bit version of python interpreter is not being used
 isPython64Bit = (ctypes.sizeof(ctypes.c_voidp) == 8)
@@ -2698,6 +2831,7 @@ summaryMsg += """\
     Alembic Plugin              {buildAlembic}
       HDF5 support:             {enableHDF5}
     Draco Plugin                {buildDraco}
+    Emscripten build            {buildEmscripten}
 
   Dependencies                  {dependencies}"""
 
@@ -2759,6 +2893,7 @@ summaryMsg = summaryMsg.format(
     buildUsdValidation=("On" if context.buildUsdValidation else "Off"),
     buildAlembic=("On" if context.buildAlembic else "Off"),
     buildDraco=("On" if context.buildDraco else "Off"),
+    buildEmscripten=("On" if context.emscriptenBuild else "Off"),
     buildMaterialX=("On" if context.buildMaterialX else "Off"),
     buildMayapyTests=("On" if context.buildMayapyTests else "Off"),
     buildAnimXTests=("On" if context.buildAnimXTests else "Off"),
