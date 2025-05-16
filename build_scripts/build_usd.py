@@ -1197,6 +1197,10 @@ def InstallTBB_Emscripten(context, force, buildArgs):
                   [("__emscripten__", "__EMSCRIPTEN__")],
                   multiLineMatches=True)
         
+        PatchFile("build/linux.emscripten.inc",
+                  [("CPLUS_FLAGS += -DTBB_USE_EXCEPTIONS=0", "CPLUS_FLAGS += -DTBB_USE_EXCEPTIONS=0\nCPLUS_FLAGS += -fPIC")],
+                  multiLineMatches=True)
+        
         # By default no config for other platform is available, but the one for linux
         # seems to work fine
         if MacOS():
