@@ -95,7 +95,7 @@ typedef int (*ForkFunc)(void);
 ForkFunc Arch_nonLockingFork =
 #if defined(ARCH_OS_LINUX)
     (ForkFunc)dlsym(RTLD_DEFAULT, "_Fork");
-#elif defined(ARCH_OS_DARWIN)
+#elif defined(ARCH_OS_DARWIN) || defined(__EMSCRIPTEN__)
     NULL;
 #else
 #error Unknown architecture.
@@ -1419,6 +1419,7 @@ ArchGetStackFrames(size_t maxdepth, size_t skip, uintptr_t *frames)
 size_t
 ArchGetStackFrames(size_t, size_t, uintptr_t *)
 {
+	return 0;
 }
 
 #endif

@@ -43,6 +43,10 @@
 #endif
 #include <atomic>
 
+#if defined(__EMSCRIPTEN__)
+#define ARCH_NO_DEBUGGER
+#endif
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 // We don't want this inlined so ArchDebuggerTrap() is as clean as
@@ -50,11 +54,11 @@ PXR_NAMESPACE_OPEN_SCOPE
 // we don't confuse the debugger's stack unwinding.
 static void Arch_DebuggerInit() ARCH_NOINLINE;
 
-static bool _archDebuggerInitialized = false;
-static bool _archDebuggerEnabled = false;
-static std::atomic<bool> _archDebuggerWait(false);
+[[maybe_unused]] static bool _archDebuggerInitialized = false;
+[[maybe_unused]] static bool _archDebuggerEnabled = false;
+[[maybe_unused]] static std::atomic<bool> _archDebuggerWait(false);
 
-static char** _archDebuggerAttachArgs = 0;
+[[maybe_unused]] static char** _archDebuggerAttachArgs = 0;
 
 #if defined(ARCH_OS_LINUX) || defined(ARCH_OS_DARWIN)
 static
@@ -101,6 +105,7 @@ struct InitPosix {
 }
 #endif
 
+[[maybe_unused]]
 static
 void
 Arch_DebuggerInit()
@@ -428,6 +433,7 @@ AmIBeingDebugged()
 
 #endif // defined(ARCH_OS_LINUX)
 
+[[maybe_unused]]
 static
 bool
 Arch_DebuggerAttach()
@@ -583,10 +589,11 @@ Arch_InitDebuggerAttach()
 void
 ArchDebuggerTrap()
 {
+#ifndef ARCH_NO_DEBUGGER
     // Trap if a debugger is attached or we try and fail to attach one.
     // If we attach one we assume it will automatically stop this process.
     if (ArchDebuggerIsAttached() || !Arch_DebuggerAttach()) {
-    if (_archDebuggerEnabled) {
+        if (_archDebuggerEnabled) {
 #if defined(ARCH_OS_WINDOWS)
             DebugBreak();
 #elif defined(ARCH_CPU_INTEL)
@@ -594,8 +601,9 @@ ArchDebuggerTrap()
 #else
             raise(SIGTRAP);
 #endif
+        }
     }
-}
+#endif
 }
 
 void
@@ -605,6 +613,7 @@ ArchDebuggerWait(bool wait)
 }
 
 namespace {
+[[maybe_unused]]
 bool
 _ArchAvoidJIT()
 {
@@ -615,27 +624,38 @@ _ArchAvoidJIT()
 bool
 ArchDebuggerAttach()
 {
+#ifdef ARCH_NO_DEBUGGER
+    return false;
+#else
     return !_ArchAvoidJIT() &&
             (ArchDebuggerIsAttached() || Arch_DebuggerAttach());
+#endif
 }
 
 bool
 ArchDebuggerIsAttached()
 {
-    Arch_DebuggerInit();
+#ifdef ARCH_NO_DEBUGGER
+    return false;
+#else
 #if defined(ARCH_OS_WINDOWS)
     return IsDebuggerPresent() == TRUE;
 #elif defined(ARCH_OS_DARWIN)
     return AmIBeingDebugged();
 #elif defined(ARCH_OS_LINUX)
     return Arch_DebuggerIsAttachedPosix();
-#endif
+#else
     return false;
+#endif
+#endif
 }
 
 void
 ArchAbort(bool logging)
 {
+#ifdef ARCH_NO_DEBUGGER
+    abort();
+#else
     if (!_ArchAvoidJIT() || ArchDebuggerIsAttached()) {
         if (!logging) {
 #if !defined(ARCH_OS_WINDOWS)
@@ -647,12 +667,14 @@ ArchAbort(bool logging)
             sigaction(SIGABRT, &act, NULL);
 #endif
         }
-
         abort();
     }
 
     // The exit code for abort() (128 + SIGABRT).
     _exit(134);
+#endif
 }
+
+
 
 PXR_NAMESPACE_CLOSE_SCOPE

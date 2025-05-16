@@ -68,6 +68,8 @@ Arch_ObtainCacheLineSize()
     }
 
     return lineSize;
+#elif defined(__EMSCRIPTEN__)
+    return 64; // Reasonable default for WebAssembly
 #else
 #error Arch_ObtainCacheLineSize not implemented for OS.
 #endif

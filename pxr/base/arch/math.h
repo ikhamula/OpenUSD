@@ -29,7 +29,7 @@ PXR_NAMESPACE_OPEN_SCOPE
 /// \addtogroup group_arch_Math
 ///@{
 
-#if defined (ARCH_CPU_INTEL) || defined (ARCH_CPU_ARM) || defined (doxygen)
+#if defined (ARCH_CPU_INTEL) || defined (ARCH_CPU_ARM) || defined(__EMSCRIPTEN__) || defined (doxygen)
 
 /// This is the smallest value e such that 1+e^2 == 1, using floats.
 /// True for all IEEE754 chipsets.
@@ -88,7 +88,7 @@ inline double ArchBitPatternToDouble(uint64_t v) {
 #error Unknown system architecture.
 #endif
 
-#if defined(ARCH_OS_LINUX) || defined(doxygen)
+#if defined(ARCH_OS_LINUX) || defined(__EMSCRIPTEN__) || defined(doxygen)
 
 /// Computes the sine and cosine of the specified value as a float.
 inline void ArchSinCosf(float v, float *s, float *c) { sincosf(v, s, c); }

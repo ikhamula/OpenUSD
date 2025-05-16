@@ -47,8 +47,15 @@
 #if defined(__x86_64__) || defined(__aarch64__) || defined(_M_X64) || \
     defined(_M_ARM64)
 #define ARCH_BITS_64
+
+#elif defined(__EMSCRIPTEN__)
+#define ARCH_BITS_32
+#define ARCH_CPU_32
+#define ARCH_CACHE_LINE_SIZE 64
+#define ARCH_X86  // Optional, needed if some math code assumes ARCH_X86
+
 #else
-#error "Unsupported architecture.  x86_64 or ARM64 required."
+#error "Unsupported architecture.  x86_64, ARM64, or Emscripten required."
 #endif
 
 //

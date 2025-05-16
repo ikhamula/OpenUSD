@@ -143,14 +143,14 @@ int ArchRmDir(const char* path)
 bool
 ArchStatIsWritable(const ArchStatType *st)
 {
-#if defined(ARCH_OS_LINUX) || defined (ARCH_OS_DARWIN)
+#if defined(ARCH_OS_LINUX) || defined(ARCH_OS_DARWIN) || defined(__EMSCRIPTEN__)
     if (st) {
         return (st->st_mode & S_IWOTH) || 
-            ((getegid() == st->st_gid) && (st->st_mode & S_IWGRP)) ||
-            ((geteuid() == st->st_uid) && (st->st_mode & S_IWUSR))
-            ;
+               ((getegid() == st->st_gid) && (st->st_mode & S_IWGRP)) ||
+               ((geteuid() == st->st_uid) && (st->st_mode & S_IWUSR));
     }
     return false;
+
 #elif defined(ARCH_OS_WINDOWS)
     if (st) {
         return (st->st_mode & _S_IWRITE) ? true : false;
@@ -180,12 +180,14 @@ ArchGetModificationTime(const char* pathname, double* time)
 double
 ArchGetModificationTime(const ArchStatType& st)
 {
-#if defined(ARCH_OS_LINUX)
-    return st.st_mtim.tv_sec + 1e-9*st.st_mtim.tv_nsec;
+#if defined(ARCH_OS_LINUX) || defined(__EMSCRIPTEN__)
+    return static_cast<double>(st.st_mtim.tv_sec) + 1e-9 * static_cast<double>(st.st_mtim.tv_nsec);
+
 #elif defined(ARCH_OS_DARWIN)
-    return st.st_mtimespec.tv_sec + 1e-9*st.st_mtimespec.tv_nsec;
+    return static_cast<double>(st.st_mtimespec.tv_sec) + 1e-9 * static_cast<double>(st.st_mtimespec.tv_nsec);
+
 #elif defined(ARCH_OS_WINDOWS)
-    // NB: this may need adjusting
+    // Windows _stat returns time in seconds since epoch
     return static_cast<double>(st.st_mtime);
 #else
 #error Unknown system architecture
@@ -432,12 +434,14 @@ ArchGetStatMode(const char *pathname, int *mode)
 double
 ArchGetAccessTime(const struct stat& st)
 {
-#if defined(ARCH_OS_LINUX)
-    return st.st_atim.tv_sec + 1e-9*st.st_atim.tv_nsec;
+#if defined(ARCH_OS_LINUX) || defined(__EMSCRIPTEN__)
+    return static_cast<double>(st.st_atim.tv_sec) + 1e-9 * static_cast<double>(st.st_atim.tv_nsec);
+
 #elif defined(ARCH_OS_DARWIN)
-    return st.st_atimespec.tv_sec + 1e-9*st.st_atimespec.tv_nsec;
+    return static_cast<double>(st.st_atimespec.tv_sec) + 1e-9 * static_cast<double>(st.st_atimespec.tv_nsec);
+
 #elif defined(ARCH_OS_WINDOWS)
-    // NB: this may need adjusting
+    // On Windows, st_atime is time in seconds since epoch
     return static_cast<double>(st.st_atime);
 #else
 #error Unknown system architecture
@@ -447,13 +451,15 @@ ArchGetAccessTime(const struct stat& st)
 double
 ArchGetStatusChangeTime(const struct stat& st)
 {
-#if defined(ARCH_OS_LINUX)
-    return st.st_ctim.tv_sec + 1e-9*st.st_ctim.tv_nsec;
+#if defined(ARCH_OS_LINUX) || defined(__EMSCRIPTEN__)
+    return static_cast<double>(st.st_ctim.tv_sec) + 1e-9 * static_cast<double>(st.st_ctim.tv_nsec);
+
 #elif defined(ARCH_OS_DARWIN)
-    return st.st_ctimespec.tv_sec + 1e-9*st.st_ctimespec.tv_nsec;
+    return static_cast<double>(st.st_ctimespec.tv_sec) + 1e-9 * static_cast<double>(st.st_ctimespec.tv_nsec);
+
 #elif defined(ARCH_OS_WINDOWS)
-    // NB: this may need adjusting
-    return static_cast<double>(st.st_mtime);
+    // On Windows, st_ctime is often used for status change, but it may behave differently
+    return static_cast<double>(st.st_ctime);
 #else
 #error Unknown system architecture
 #endif
@@ -477,12 +483,14 @@ ArchGetFileLength(FILE *file)
 {
     if (!file)
         return -1;
-#if defined (ARCH_OS_LINUX) || defined (ARCH_OS_DARWIN)
+
+#if defined(ARCH_OS_LINUX) || defined(ARCH_OS_DARWIN) || defined(__EMSCRIPTEN__)
     struct stat buf;
-    return fstat(fileno(file), &buf) < 0 ? -1 :
-        static_cast<int64_t>(buf.st_size);
-#elif defined (ARCH_OS_WINDOWS)
+    return fstat(fileno(file), &buf) < 0 ? -1 : static_cast<int64_t>(buf.st_size);
+
+#elif defined(ARCH_OS_WINDOWS)
     return _GetFileLength(_FileToWinHANDLE(file));
+
 #else
 #error Unknown system architecture
 #endif
@@ -491,22 +499,24 @@ ArchGetFileLength(FILE *file)
 int64_t
 ArchGetFileLength(const char* fileName)
 {
-#if defined (ARCH_OS_LINUX) || defined (ARCH_OS_DARWIN)
+#if defined(ARCH_OS_LINUX) || defined(ARCH_OS_DARWIN) || defined(__EMSCRIPTEN__)
     struct stat buf;
     return stat(fileName, &buf) < 0 ? -1 : static_cast<int64_t>(buf.st_size);
-#elif defined (ARCH_OS_WINDOWS)
-    // Open a handle with 0 as the desired access and full sharing.
-    // This opens the file even if exclusively locked.
-    HANDLE handle =
-        CreateFileW(ArchWindowsUtf8ToUtf16(fileName).c_str(), 0,
-                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                   nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (handle) {
+
+#elif defined(ARCH_OS_WINDOWS)
+    // Open a handle with no desired access and full sharing.
+    HANDLE handle = CreateFileW(
+        ArchWindowsUtf8ToUtf16(fileName).c_str(), 0,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+
+    if (handle && handle != INVALID_HANDLE_VALUE) {
         const auto result = _GetFileLength(handle);
         CloseHandle(handle);
         return result;
     }
     return -1;
+
 #else
 #error Unknown system architecture
 #endif
@@ -515,7 +525,7 @@ ArchGetFileLength(const char* fileName)
 string
 ArchGetFileName(FILE *file)
 {
-#if defined (ARCH_OS_LINUX)
+#if defined (ARCH_OS_LINUX) || defined(__EMSCRIPTEN__)
     string result;
     char buf[PATH_MAX];
     ssize_t r = readlink(
@@ -1361,7 +1371,7 @@ void ArchFileAdvise(
     int rval = posix_fadvise(fileno(file), offset, static_cast<off_t>(count),
                              adviceMap[adv]);
     if (rval != 0) {
-        fprintf(stderr, "failed call to posix_fadvise(%d, %zd, %zd)"
+        fprintf(stderr, "failed call to posix_fadvise(%d, %lld, %lld)"
                 "ret=%d, errno=%d '%s'\n",
                 fileno(file), offset, static_cast<off_t>(count),
                 rval, errno, ArchStrerror().c_str());

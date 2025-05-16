@@ -15,7 +15,7 @@
 #include <functional>
 #include <limits>
 
-#if defined(ARCH_OS_LINUX)
+#if defined(ARCH_OS_LINUX) || defined(__EMSCRIPTEN__)
 
     #include <sys/types.h>
     #include <sys/stat.h>
@@ -66,6 +66,7 @@ namespace {
 
 // Getting the executable path requires a dynamically allocated buffer
 // on all platforms.  This helper function handles the allocation.
+[[maybe_unused]]
 static std::string
 _DynamicSizedRead(
     size_t initialSize,
@@ -168,14 +169,15 @@ ArchGetExecutablePath()
                     return true;
                 }
             });
-
+#elif defined(__EMSCRIPTEN__)
+    return "";
 #endif
 }
 
 int
 ArchGetPageSize()
 {
-#if defined(ARCH_OS_LINUX) || defined(ARCH_OS_DARWIN)
+#if defined(ARCH_OS_LINUX) || defined(ARCH_OS_DARWIN) || defined(__EMSCRIPTEN__)
     return sysconf(_SC_PAGE_SIZE);
 #elif defined(ARCH_OS_WINDOWS)
     SYSTEM_INFO info;

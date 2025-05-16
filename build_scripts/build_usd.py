@@ -476,7 +476,7 @@ def RunCMake(context, force, extraArgs = None):
         #    .format(config=config, numJobs=context.numJobs))
         
         Run(('{} '.format('emmake.bat' if Windows() else 'emmake') if context.emscriptenBuild else '') +
-            "cmake --build . --config {config} --target install -- {multiproc}"
+            "cmake --build . --config {config} --target install {multiproc}"
             .format(config=config,
                     multiproc=FormatMultiProcs(context.numJobs, generator)))
 
@@ -1193,6 +1193,10 @@ def InstallTBB_Emscripten(context, force, buildArgs):
                   [("-DUSE_PTHREAD", "-DUSE_PTHREAD -pthread")],
                   multiLineMatches=True)
         
+        PatchFile("include/tbb/tbb_machine.h",
+                  [("__emscripten__", "__EMSCRIPTEN__")],
+                  multiLineMatches=True)
+        
         # By default no config for other platform is available, but the one for linux
         # seems to work fine
         if MacOS():
@@ -1205,7 +1209,7 @@ def InstallTBB_Emscripten(context, force, buildArgs):
 
         # Run the script from the "x64 Native Tools Command Prompt" of Visual Studio,
         # to get the correct compiler and arch for TBB Emscripten build on windows
-        Run('{emmake} make -j{procs} arch=wasm32 runtime=emscripten extra_inc=big_iron.inc tbb --debug=b {buildArgs}'
+        Run('{emmake} make -j{procs} extra_inc=big_iron.inc tbb --debug=b {buildArgs}'
             .format(emmake="emmake.bat" if Windows() else "emmake",
                     procs=context.numJobs,
                     buildArgs=" ".join(buildArgs)))

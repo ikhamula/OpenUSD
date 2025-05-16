@@ -25,25 +25,21 @@ std::string
 ArchStrerror(int errorCode)
 {
     char msg_buf[256];
-   
-#if defined(_GNU_SOURCE)
-    // from strerror_r(3):
-    //
-    //   The GNU-specific strerror_r() returns a pointer to a string
-    //   containing the error message. This may be either a pointer to a
-    //   string that the function stores in buf, or a pointer to some
-    //   (immutable) static string (in which case buf is unused). If the
-    //   function stores a string in buf, then at most buflen bytes are stored
-    //   (the string may be truncated if buflen is too small and errnum is
-    //   unknown). The string always includes a terminating null byte.
-    //
-    return strerror_r(errorCode, msg_buf, 256);
+
+#if defined(_GNU_SOURCE) && !defined(__EMSCRIPTEN__)
+    // GNU version returns a char* directly.
+    return strerror_r(errorCode, msg_buf, sizeof(msg_buf));
 #elif !defined(ARCH_COMPILER_MSVC)
-    strerror_r(errorCode, msg_buf, 256);
+    // POSIX version: returns int, buffer is filled
+    if (strerror_r(errorCode, msg_buf, sizeof(msg_buf)) == 0) {
+        return std::string(msg_buf);
+    } else {
+        return "Unknown error";
+    }
 #else
-    strerror_s(msg_buf, 256, errorCode);
-#endif // _GNU_SOURCE
+    strerror_s(msg_buf, sizeof(msg_buf), errorCode);
     return msg_buf;
+#endif
 }
 
 #if defined(ARCH_OS_WINDOWS)

@@ -19,7 +19,11 @@
 #include <type_traits>
 #include <thread>
 
-#if defined(ARCH_OS_LINUX)
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+#endif
+
+#if defined(ARCH_OS_LINUX) || defined(__EMSCRIPTEN__)
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -87,6 +91,27 @@ Arch_ComputeNanosecondsPerTick()
     mach_timebase_info_data_t info;
     mach_timebase_info(&info);
     return static_cast<double>(info.numer) / info.denom;
+}
+
+#elif defined(__EMSCRIPTEN__)
+
+static
+double
+Arch_ComputeNanosecondsPerTick()
+{
+	using Clock = std::chrono::high_resolution_clock;
+    auto start = emscripten_get_now();  // in ms
+    volatile int dummy = 0;
+    for (int i = 0; i < 1000000; ++i) {
+        dummy += i;
+    }
+    auto end = emscripten_get_now();
+
+    double elapsedMs = end - start;
+    double elapsedNs = elapsedMs * 1e6;
+
+    // Just assume 1,000,000 ticks happened for the loop
+    return elapsedNs / 1e6;
 }
 
 #elif defined(ARCH_OS_LINUX)
@@ -270,9 +295,13 @@ Arch_MeasureExecutionTime(uint64_t maxTicks, bool *reachedConsensus,
     // Since measured times are +/- 1 quantum, we multiply by 2000 to get the
     // desired runtime, and from there figure number of iterations for a sample.
     const uint64_t minTicksPerSample = 2000 * ArchGetTickQuantum();
+    #if defined(__EMSCRIPTEN__)
+    const int sampleIters = 1; // FIXME
+    #else
     const int sampleIters = (estTicksPer < minTicksPerSample)
         ? (minTicksPerSample + estTicksPer/2) / estTicksPer
-        : 1;
+        : 1;    
+    #endif
 
     auto measureSample = [&measureN, sampleIters]() {
         return (measureN(sampleIters) + sampleIters/2) / sampleIters;
