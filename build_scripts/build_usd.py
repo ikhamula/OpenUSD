@@ -1209,7 +1209,7 @@ def InstallTBB_Emscripten(context, force, buildArgs):
 
         # Run the script from the "x64 Native Tools Command Prompt" of Visual Studio,
         # to get the correct compiler and arch for TBB Emscripten build on windows
-        Run('{emmake} make -j{procs} extra_inc=big_iron.inc tbb --debug=b {buildArgs}'
+        Run('{emmake} make -j{procs} extra_inc=big_iron.inc tbb {buildArgs}'
             .format(emmake="emmake.bat" if Windows() else "emmake",
                     procs=context.numJobs,
                     buildArgs=" ".join(buildArgs)))
@@ -2690,6 +2690,13 @@ if context.emscriptenBuild:
     if not which("emcc"):
         PrintError(" Emscripten compiler emcc not found -- please install a compiler")
         sys.exit(1)
+    if not which("choco"):
+        print("Chocolatey is not installed. Please install it first from https://chocolatey.org/install")
+        sys.exit(1)
+    if not which("make"):
+        print("make is not installed. Installing with Chocolatey...")
+        Run("choco install make -y")
+
 else:
     if (not which("g++") and
         not which("clang") and
