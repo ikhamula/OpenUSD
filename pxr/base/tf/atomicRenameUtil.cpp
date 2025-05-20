@@ -34,15 +34,15 @@ PXR_NAMESPACE_OPEN_SCOPE
     static const bool requireWritePermissionDefault = true;
 #endif
 
-TF_DEFINE_ENV_SETTING(
-    TF_REQUIRE_FILESYSTEM_WRITE_PERMISSION, requireWritePermissionDefault,
-        "If enabled, check for both directory and file write permissions "
-        "before creating output files. Otherwise attempt to create output "
-        "files without first checking permissions. Note that if this is "
-        "disabled and the directory is writable then there is a risk of "
-        "renaming and obliterating the file; however it may be worth "
-        "disabling if your networked file system often reports incorrect "
-        "file permissions.");
+//(
+//   TF_REQUIRE_FILESYSTEM_WRITE_PERMISSION, requireWritePermissionDefault,
+//       "If enabled, check for both directory and file write permissions "
+//       "before creating output files. Otherwise attempt to create output "
+//       "files without first checking permissions. Note that if this is "
+//       "disabled and the directory is writable then there is a risk of "
+//       "renaming and obliterating the file; however it may be worth "
+//       "disabling if your networked file system often reports incorrect "
+//       "file permissions.");
 
 bool
 Tf_AtomicRenameFileOver(std::string const &srcFileName,
@@ -143,7 +143,7 @@ Tf_CreateSiblingTempFile(std::string fileName,
     std::string dirPath = TfStringGetBeforeSuffix(realFilePath, '/');
 #endif
 
-    if (TfGetEnvSetting(TF_REQUIRE_FILESYSTEM_WRITE_PERMISSION)) {
+    //if (TfGetEnvSetting(TF_REQUIRE_FILESYSTEM_WRITE_PERMISSION)) {
         if (ArchFileAccess(dirPath.c_str(), W_OK) != 0) {
             *error = TfStringPrintf(
                 "Insufficient permissions to write to destination "
@@ -163,7 +163,7 @@ Tf_CreateSiblingTempFile(std::string fileName,
                 "file '%s'", realFilePath.c_str());
             return result;
         }
-    }
+    //}
 
     std::string tmpFilePrefix =
         TfStringGetBeforeSuffix(TfGetBaseName(realFilePath));

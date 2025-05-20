@@ -172,6 +172,17 @@ public:
     static void TF_PP_CAT(_Tf_RegistryFunction, NAME)(KEY_TYPE*, void*)
 
 
+// _______________REVIEW REQUIRED__________________________________________
+#if defined(__EMSCRIPTEN__)
+
+// WebAssembly-safe stub macro
+#define TF_REGISTRY_FUNCTION(KEY_TYPE) \
+    [[maybe_unused]] static void TF_PP_CAT(_TfRegistryStub_, __COUNTER__)(void)
+
+#define TF_REGISTRY_FUNCTION_WITH_TAG(KEY_TYPE, TAG) \
+    [[maybe_unused]] static void TF_PP_CAT(_TfRegistryStub_, __COUNTER__)(void)
+
+#else
 /// Define a function that is called on demand by \c TfRegistryManager.
 ///
 /// This is a simpler form of TF_REGISTRY_FUNCTION_WITH_TAG() that provides
@@ -242,6 +253,8 @@ public:
 /// \hideinitializer
 #define TF_REGISTRY_FUNCTION_WITH_TAG(KEY_TYPE, TAG) \
     TF_REGISTRY_DEFINE(KEY_TYPE, TF_PP_CAT(TAG, __LINE__))
+
+#endif // if __EMSCRIPTEN__
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
