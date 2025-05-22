@@ -1,6 +1,8 @@
 set(PXR_PREFIX jsBindings)
 set(PXR_PACKAGE jsBindings)
 
+return() # return for skipping
+
 if (NOT PXR_ENABLE_JS_SUPPORT)
   return()
 endif()
