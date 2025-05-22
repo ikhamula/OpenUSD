@@ -247,6 +247,10 @@ pxr_library(tf
         typeInfoMap.h
         type_Impl.h
 
+    JS_PUBLIC_HEADERS
+        emscriptenTypeRegistration.h
+        wrapTokenJs.h
+
     PYTHON_PUBLIC_HEADERS
         py3Compat.h
         pySafePython.h

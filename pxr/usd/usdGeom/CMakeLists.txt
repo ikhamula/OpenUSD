@@ -28,6 +28,12 @@ pxr_library(usdGeom
         primvar
         xformOp
 
+    JS_CPPFILES
+        wrapXformJs.cpp
+        wrapXformOpJs.cpp
+        wrapXformableJs.cpp
+        wrapMeshJs.cpp
+
     PUBLIC_HEADERS
         api.h
 

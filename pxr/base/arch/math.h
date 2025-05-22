@@ -88,7 +88,7 @@ inline double ArchBitPatternToDouble(uint64_t v) {
 #error Unknown system architecture.
 #endif
 
-#if defined(ARCH_OS_LINUX) || defined(__EMSCRIPTEN__) || defined(doxygen)
+#if defined(ARCH_OS_LINUX) || defined(doxygen)
 
 /// Computes the sine and cosine of the specified value as a float.
 inline void ArchSinCosf(float v, float *s, float *c) { sincosf(v, s, c); }
@@ -96,7 +96,7 @@ inline void ArchSinCosf(float v, float *s, float *c) { sincosf(v, s, c); }
 /// Computes the sine and cosine of the specified value as a double.
 inline void ArchSinCos(double v, double *s, double *c) { sincos(v, s, c); }
 
-#elif defined(ARCH_OS_DARWIN) || defined(ARCH_OS_WINDOWS)
+#elif defined(ARCH_OS_DARWIN) || defined(ARCH_OS_WINDOWS) || defined(__EMSCRIPTEN__)
 
 inline void ArchSinCosf(float v, float *s, float *c) {
     *s = std::sin(v);

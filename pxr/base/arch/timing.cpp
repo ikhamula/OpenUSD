@@ -19,10 +19,6 @@
 #include <type_traits>
 #include <thread>
 
-#if defined(__EMSCRIPTEN__)
-#include <emscripten.h>
-#endif
-
 #if defined(ARCH_OS_LINUX) || defined(__EMSCRIPTEN__)
 #include <chrono>
 #include <cstdio>

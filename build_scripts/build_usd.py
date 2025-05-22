@@ -1921,7 +1921,7 @@ def InstallUSD(context, force, buildArgs):
 
         if context.emscriptenBuild:
             if context.buildUsdImaging:
-                extraArgs.append('-DPXR_ENABLE_WEBGPU_SUPPORT=ON')
+                extraArgs.append('-DPXR_ENABLE_WEBGPU_SUPPORT=ON') # deprecated for now, need to be fixed according to forked repo by atdsk
 
             extraArgs.append('-DPXR_ENABLE_JS_SUPPORT=ON')
             # For some reason we have to manually specify path to boost
@@ -1934,7 +1934,7 @@ def InstallUSD(context, force, buildArgs):
             extraArgs.append('-DOPENSUBDIV_INCLUDE_DIR="{}"'.format(os.path.join(context.usdInstDir, 'include')))
             extraArgs.append('-DOPENSUBDIV_OSDCPU_LIBRARY="{}"'.format(os.path.join(context.usdInstDir, 'lib/libosdCPU.a')))
 
-            extraArgs.append('-DPXR_ENABLE_GL_SUPPORT=ON')
+            #extraArgs.append('-DPXR_ENABLE_GL_SUPPORT=ON')
             extraArgs.append('-DBUILD_SHARED_LIBS=OFF')
 
             # if context.emscripten == 'EMSCRIPTEN_NODE':

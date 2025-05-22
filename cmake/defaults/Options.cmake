@@ -27,6 +27,7 @@ option(PXR_BUILD_DOCUMENTATION "Generate doxygen documentation" OFF)
 option(PXR_BUILD_PYTHON_DOCUMENTATION "Generate Python documentation" OFF)
 option(PXR_BUILD_HTML_DOCUMENTATION "Generate HTML documentation if PXR_BUILD_DOCUMENTATION is ON" ON)
 option(PXR_ENABLE_PYTHON_SUPPORT "Enable Python based components for USD" ON)
+option(PXR_ENABLE_JS_SUPPORT "Enable Javascript based components for USD" OFF)
 option(PXR_USE_DEBUG_PYTHON "Build with debug python" OFF)
 option(PXR_ENABLE_HDF5_SUPPORT "Enable HDF5 backend in the Alembic plugin for USD" OFF)
 option(PXR_ENABLE_OSL_SUPPORT "Enable OSL (OpenShadingLanguage) based components" OFF)
@@ -173,6 +174,12 @@ if (${PXR_ENABLE_METAL_SUPPORT})
     endif()
 endif()
 
+#if (${PXR_ENABLE_JS_SUPPORT})
+#message(STATUS
+#        "Setting PXR_ENABLE_WEBGPU_SUPPORT=ON")
+#    set(PXR_ENABLE_WEBGPU_SUPPORT "ON" CACHE BOOL "" FORCE)
+#endif()
+
 if (${PXR_ENABLE_GL_SUPPORT} OR ${PXR_ENABLE_METAL_SUPPORT} OR ${PXR_ENABLE_VULKAN_SUPPORT})
     set(PXR_BUILD_GPU_SUPPORT "ON")
 else()
@@ -224,6 +231,13 @@ endif()
 if (${PXR_BUILD_DRACO_PLUGIN} AND ${PXR_BUILD_MONOLITHIC} AND WIN32)
     message(FATAL_ERROR 
         "Draco plugin can not be enabled for monolithic builds on Windows")
+endif()
+
+# Error out if user is building with Emscripten and tests. 
+# This is currently not supported.
+if (${PXR_ENABLE_JS_SUPPORT} AND ${PXR_BUILD_TESTS})
+    message(FATAL_ERROR 
+        "Emscripten build can not be enabled together with tests")
 endif()
 
 # Make sure PXR_BUILD_DOCUMENTATION and PXR_ENABLE_PYTHON_SUPPORT are enabled 

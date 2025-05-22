@@ -28,6 +28,10 @@ elseif(WIN32)
     set(GARCH_GLPLATFORMDEBUGWINDOW   glPlatformDebugWindowWindows)
     set(GARCH_SOURCE_EXTENSION        cpp)
     set(GARCH_PLATFORM_LIBRARIES      OpenGL::GL)
+#elseif(PXR_ENABLE_JS_SUPPORT)
+#    set(GARCH_GLPLATFORMCONTEXT       glPlatformContextEmscripten)
+#    set(GARCH_GLPLATFORMDEBUGWINDOW   glPlatformDebugWindowEmscripten)
+#    set(GARCH_SOURCE_EXTENSION        cpp)
 endif()
 
 pxr_library(garch

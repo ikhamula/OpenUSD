@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.26)
 
 project(usd)
 
+
 if (NOT CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT EMSCRIPTEN)
     if (WIN32)
         message(FATAL_ERROR "Compiler does not support 64-bit builds. "
@@ -37,7 +38,8 @@ include(CXXDefaults)
 add_definitions(${_PXR_CXX_DEFINITIONS})
 set(CMAKE_CXX_FLAGS "${_PXR_CXX_FLAGS} ${CMAKE_CXX_FLAGS}")
 
-if (EMSCRIPTEN)
+# verify for future development
+if(PXR_ENABLE_JS_SUPPORT)
     # Add EMSCRIPTEN specific compiler flags (is this the right place)?
     set(EMSCRIPTEN_COMPILE_FLAGS "-fPIC \
         -pthread -sPTHREAD_POOL_SIZE=24 \

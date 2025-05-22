@@ -222,6 +222,9 @@ if (PXR_BUILD_IMAGING)
     endif()
     # --Opensubdiv
     set(OPENSUBDIV_USE_GPU ${PXR_BUILD_GPU_SUPPORT})
+	if (EMSCRIPTEN)
+        set(OPENSUBDIV_USE_GPU OFF)
+    endif()
     find_package(OpenSubdiv 3 CONFIG)
     if(OpenSubdiv_DIR)
         # Found in CONFIG mode.
