@@ -36,3 +36,7 @@ endif()
 if (${PXR_ENABLE_MATERIALX_SUPPORT})
     add_subdirectory(usdMtlx)
 endif()
+
+if (PXR_ENABLE_JS_SUPPORT)
+  add_subdirectory(js_bindings)
+endif()
