@@ -1461,7 +1461,7 @@ function(_pxr_library NAME)
             "${PROJECT_BINARY_DIR}/${PXR_INSTALL_SUBDIR}/include"
     )
     
-    # INTERFACE include dirs should still be set on the outer interface target
+    # Set install-visible include path for consumers of installed packages
     if(NOT TYPE STREQUAL "INTERFACE_LIBRARY")
         target_include_directories(${_target_to_define}
             INTERFACE
@@ -1473,14 +1473,14 @@ function(_pxr_library NAME)
                 $<INSTALL_INTERFACE:${headerInstallDir}>
         )
     endif()
-
-
-    # The INCLUDE_DIRS argument specifies directories containing headers
-    # for third-party libraries needed by this library. We treat these
-    # as system include directories so that compiler warnings from these
-    # headers are ignored, since we have no control over the contents
-    # of those headers.
-    target_include_directories(${NAME}
+    
+    # Add TBB include path if provided
+    if(TBB_INCLUDE_DIRS)
+        list(APPEND args_INCLUDE_DIRS "${TBB_INCLUDE_DIRS}")
+    endif()
+    
+    # Apply system third-party include paths to the actual build target
+    target_include_directories(${_target_to_define}
         SYSTEM
         PUBLIC
             ${args_INCLUDE_DIRS}
