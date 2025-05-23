@@ -13,9 +13,6 @@ pxr_library(usdLux
         usdGeom
         usdShade
 
-    JS_CPPFILES
-        wrapDistantLightJs.cpp
-
     PUBLIC_CLASSES
         blackbody
 

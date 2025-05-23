@@ -30,11 +30,6 @@ pxr_library(usdShade
         api.h
         types.h
 
-    JS_CPPFILES
-        wrapShaderJs.cpp
-        wrapInputJs.cpp
-        wrapOutputJs.cpp
-
     PYMODULE_CPPFILES
         wrapInput.cpp
         wrapOutput.cpp

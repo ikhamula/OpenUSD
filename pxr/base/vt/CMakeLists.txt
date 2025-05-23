@@ -56,11 +56,6 @@ pxr_library(vt
         overview.dox
 )
 
-#if(PXR_ENABLE_JS_SUPPORT)
-#    target_link_options(vt_internal PRIVATE "SHELL: --bind")
-#    target_compile_options(vt_internal PRIVATE "SHELL: --bind")
-#endif()
-
 pxr_build_test(testVtCpp
     LIBRARIES
         tf

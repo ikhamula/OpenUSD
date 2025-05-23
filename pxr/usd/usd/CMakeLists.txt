@@ -69,13 +69,6 @@ pxr_library(usd
         variantSets
         zipFile
 
-    JS_CPPFILES
-        wrapAttributeJs.cpp
-        wrapPrimJs.cpp
-        wrapReferencesJs.cpp
-        wrapStageJs.cpp
-        emscriptenSdfToVtValue.cpp
-
     PYTHON_PUBLIC_CLASSES
         pyEditContext
         pyConversions
@@ -94,10 +87,6 @@ pxr_library(usd
         primTypeInfoCache
         usdzResolver
         valueUtils
-
-    JS_PUBLIC_HEADERS
-        emscriptenPtrRegistrationHelper.h
-        emscriptenSdfToVtValue.h
 
     PUBLIC_HEADERS
         api.h
