@@ -141,48 +141,78 @@ public:
 // Macros for adding registry functions outside class templates.
 //
 
+// Helper macro to split out conditional constructor definition
+#if !defined(__EMSCRIPTEN__)
+#define TF_REGISTRY_DEFINE_WITH_TYPE_IMPL(KEY_TYPE, TAG, LINE)                        \
+        ARCH_CONSTRUCTOR(TF_PP_CAT(_Tf_RegistryAdd, LINE),                            \
+                         TF_REGISTRY_PRIORITY, KEY_TYPE*, TAG*)                       \
+        {                                                                             \
+            Tf_RegistryInit::Add(TF_PP_STRINGIZE(MFB_ALT_PACKAGE_NAME),               \
+                                 (void(*)(KEY_TYPE*, TAG*))_Tf_RegistryFunction,      \
+                                 TF_PP_STRINGIZE(KEY_TYPE));                          \
+        }
+#else
+#define TF_REGISTRY_DEFINE_WITH_TYPE_IMPL(KEY_TYPE, TAG, LINE)                        \
+        ARCH_CONSTRUCTOR(TF_PP_CAT3(_Tf_RegistryAdd, KEY_TYPE, TAG),                  \
+                         TF_REGISTRY_PRIORITY, void)                                  \
+        {                                                                             \
+            Tf_RegistryInit::Add(TF_PP_STRINGIZE(MFB_ALT_PACKAGE_NAME),               \
+                                 (void(*)(KEY_TYPE*, TAG*))_Tf_RegistryFunction,      \
+                                 TF_PP_STRINGIZE(KEY_TYPE));                          \
+        }
+#endif
+
 // Define a registry function outside of a template.  Follow the macro with
 // the body of the function inside braces.  KEY_TYPE and TAG must be types.
-#define TF_REGISTRY_DEFINE_WITH_TYPE(KEY_TYPE, TAG)                            \
-    static void _Tf_RegistryFunction(KEY_TYPE*, TAG*);                         \
-    ARCH_CONSTRUCTOR(TF_PP_CAT(_Tf_RegistryAdd, __LINE__),                     \
-                     TF_REGISTRY_PRIORITY, KEY_TYPE*, TAG*)                    \
-    {                                                                          \
-        Tf_RegistryInit::Add(TF_PP_STRINGIZE(MFB_ALT_PACKAGE_NAME),            \
-                             (void(*)(KEY_TYPE*, TAG*))_Tf_RegistryFunction,   \
-                             TF_PP_STRINGIZE(KEY_TYPE));                       \
-    }                                                                          \
-    _ARCH_ENSURE_PER_LIB_INIT(Tf_RegistryStaticInit, _tfRegistryInit);         \
+#define TF_REGISTRY_DEFINE_WITH_TYPE(KEY_TYPE, TAG)                                   \
+    static void _Tf_RegistryFunction(KEY_TYPE*, TAG*);                                \
+                                                                                      \
+    /* Platform-specific constructor definition */                                    \
+    /* On Emscripten we fall back to void signature for compatibility */              \
+    /* Otherwise we pass actual argument types to constructor */                      \
+    /* We use __LINE__ for uniqueness */                                              \
+    /* TF_PP_CAT is assumed to be a standard token-pasting macro */                   \
+    /* Example: #define TF_PP_CAT(a, b) a##b */                                       \
+                                                                                      \
+    /* Declare the constructor with correct signature */                              \
+    TF_REGISTRY_DEFINE_WITH_TYPE_IMPL(KEY_TYPE, TAG, __LINE__)                        \
+                                                                                      \
+    /* Define the registry function implementation */                                 \
     static void _Tf_RegistryFunction(KEY_TYPE*, TAG*)
+
     
+// Platform-specific helper
+#if !defined(__EMSCRIPTEN__)
+#define TF_REGISTRY_DEFINE_IMPL(KEY_TYPE, NAME)                                       \
+        ARCH_CONSTRUCTOR(TF_PP_CAT(_Tf_RegistryAdd, NAME),                            \
+                         TF_REGISTRY_PRIORITY, KEY_TYPE*)                             \
+        {                                                                             \
+            Tf_RegistryInit::Add(TF_PP_STRINGIZE(MFB_ALT_PACKAGE_NAME),               \
+                                 (void(*)(KEY_TYPE*, void*))                          \
+                                 TF_PP_CAT(_Tf_RegistryFunction, NAME),               \
+                                 TF_PP_STRINGIZE(KEY_TYPE));                          \
+        }
+#else
+#define TF_REGISTRY_DEFINE_IMPL(KEY_TYPE, NAME)                                       \
+        ARCH_CONSTRUCTOR(TF_PP_CAT3(_Tf_RegistryAdd, KEY_TYPE, NAME),                 \
+                         TF_REGISTRY_PRIORITY, void)                                  \
+        {                                                                             \
+            Tf_RegistryInit::Add(TF_PP_STRINGIZE(MFB_ALT_PACKAGE_NAME),               \
+                                 (void(*)(KEY_TYPE*, void*))                          \
+                                 TF_PP_CAT(_Tf_RegistryFunction, NAME),               \
+                                 TF_PP_STRINGIZE(KEY_TYPE));                          \
+        }
+#endif
+
 // Define a registry function outside of a template.  Follow the macro with
 // the body of the function inside braces.  KEY_TYPE must be a type and NAME
 // must be a valid C++ name.
-#define TF_REGISTRY_DEFINE(KEY_TYPE, NAME)                                     \
-    static void TF_PP_CAT(_Tf_RegistryFunction, NAME)(KEY_TYPE*, void*);       \
-    ARCH_CONSTRUCTOR(TF_PP_CAT(_Tf_RegistryAdd, NAME),                         \
-                     TF_REGISTRY_PRIORITY, KEY_TYPE*)                          \
-    {                                                                          \
-        Tf_RegistryInit::Add(TF_PP_STRINGIZE(MFB_ALT_PACKAGE_NAME),            \
-                             (void(*)(KEY_TYPE*, void*))                       \
-                             TF_PP_CAT(_Tf_RegistryFunction, NAME),            \
-                             TF_PP_STRINGIZE(KEY_TYPE));                       \
-    }                                                                          \
-    _ARCH_ENSURE_PER_LIB_INIT(Tf_RegistryStaticInit, _tfRegistryInit);         \
+#define TF_REGISTRY_DEFINE(KEY_TYPE, NAME)                                            \
+    static void TF_PP_CAT(_Tf_RegistryFunction, NAME)(KEY_TYPE*, void*);              \
+    TF_REGISTRY_DEFINE_IMPL(KEY_TYPE, NAME)                                           \
+    _ARCH_ENSURE_PER_LIB_INIT(Tf_RegistryStaticInit, _tfRegistryInit);                \
     static void TF_PP_CAT(_Tf_RegistryFunction, NAME)(KEY_TYPE*, void*)
 
-
-// _______________REVIEW REQUIRED__________________________________________
-#if defined(__EMSCRIPTEN__)
-
-// WebAssembly-safe stub macro
-#define TF_REGISTRY_FUNCTION(KEY_TYPE) \
-    [[maybe_unused]] static void TF_PP_CAT(_TfRegistryStub_, __COUNTER__)(void)
-
-#define TF_REGISTRY_FUNCTION_WITH_TAG(KEY_TYPE, TAG) \
-    [[maybe_unused]] static void TF_PP_CAT(_TfRegistryStub_, __COUNTER__)(void)
-
-#else
 /// Define a function that is called on demand by \c TfRegistryManager.
 ///
 /// This is a simpler form of TF_REGISTRY_FUNCTION_WITH_TAG() that provides
@@ -253,8 +283,6 @@ public:
 /// \hideinitializer
 #define TF_REGISTRY_FUNCTION_WITH_TAG(KEY_TYPE, TAG) \
     TF_REGISTRY_DEFINE(KEY_TYPE, TF_PP_CAT(TAG, __LINE__))
-
-#endif // if __EMSCRIPTEN__
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

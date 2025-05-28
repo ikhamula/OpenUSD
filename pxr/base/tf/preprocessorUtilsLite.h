@@ -22,6 +22,8 @@
 /// header which is somewhat heavy.
 #define TF_PP_CAT(x, y) TF_PP_CAT_IMPL(x, y)
 
+#define TF_PP_CAT3(a, b, c) TF_PP_CAT(TF_PP_CAT(a, b), c)
+
 // Helper for TF_PP_STRINGIZE supplying macro expansion before pasting
 #define TF_PP_STRINGIZE_IMPL(x) #x
 
