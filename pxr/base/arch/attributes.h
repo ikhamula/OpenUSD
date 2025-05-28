@@ -16,6 +16,8 @@
 #include "pxr/pxr.h"
 #include "pxr/base/arch/export.h"
 
+#include<iostream>
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 #if defined(doxygen)
@@ -198,9 +200,31 @@ PXR_NAMESPACE_OPEN_SCOPE
 // ensure that each library gets its own initialization.  Without it, on Linux,
 // there would be exactly *one* initialization no matter how many libraries are
 // loaded.
+
+#include <string_view>
+
+template <typename T>
+constexpr std::string_view GetTypeName() {
+#if defined(__clang__) || defined(__GNUC__)
+    std::string_view p = __PRETTY_FUNCTION__;
+    auto start = p.find("T = ") + 4;
+    auto end = p.find_first_of(";]", start);
+    return p.substr(start, end - start);
+#elif defined(_MSC_VER)
+    std::string_view p = __FUNCSIG__;
+    auto start = p.find("GetTypeName<") + 12;
+    auto end = p.find(">(void)", start);
+    return p.substr(start, end - start);
+#else
+    return "UnknownType";
+#endif
+}
+
+
 template <class StaticInit>
 struct ARCH_HIDDEN Arch_PerLibInit {
     Arch_PerLibInit() { /* "use" of init here forces instantiation */
+        std::cout << "---Arch_PerLibInit<" << GetTypeName<StaticInit>() << ">\n";
         (void)init; }
 private:
     static StaticInit init;
@@ -317,6 +341,21 @@ struct Arch_ConstructorInit {
     }                                                                          \
     _ARCH_ENSURE_PER_LIB_INIT(Arch_ConstructorInit, _archCtorInit);            \
     static void _name(__VA_ARGS__)
+
+//#elif defined(__EMSCRIPTEN__)
+//
+//// Emscripten/WebAssembly does not support static constructors reliably.
+//// We define a wrapper function that must be manually called (e.g., from main() or JS).
+//
+//#   define ARCH_CONSTRUCTOR(_name, _priority, ...)                            \
+//    static void _name(__VA_ARGS__);                                           \
+//    static void _name##_force_call() { _name(); }                             \
+//    static void _name(__VA_ARGS__)
+//
+//#   define ARCH_DESTRUCTOR(_name, _priority, ...)                             \
+//    static void _name(__VA_ARGS__);                                           \
+//    static void _name##_force_dtor() { _name(); }                             \
+//    static void _name(__VA_ARGS__)
 
 #else
 

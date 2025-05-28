@@ -20,6 +20,30 @@
 #include <fstream>
 #include <regex>
 #include <set>
+#include <iostream>
+#include <string>
+#include <algorithm>
+
+std::string TrimUsdResourcePath(const std::string& fullPath) {
+    const std::string marker1 = "/plugin/usd/";
+    const std::string marker2 = "/usd/";
+
+    std::string normalized = fullPath;
+    std::replace(normalized.begin(), normalized.end(), '\\', '/'); // Normalize backslashes
+
+    size_t pos = normalized.find(marker1);
+    if (pos != std::string::npos) {
+        return normalized.substr(pos + marker1.find("usd/"));  // include "usd/..."
+    }
+
+    pos = normalized.find(marker2);
+    if (pos != std::string::npos) {
+        return normalized.substr(pos + 1);  // include "usd/..."
+    }
+
+    // Return unchanged if no match
+    return normalized;
+}
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -145,6 +169,11 @@ _ReadPlugInfoObject(const std::string& pathname, JsObject* result)
     ifs.open(pathname.c_str());
 #endif
     if (!ifs.is_open()) {
+        std::string printData = "_ReadPlugInfoObject: FAILED TO OPEN, pathname = ";
+        printData += TrimUsdResourcePath(pathname);
+        printData += "\n";
+        std::cout << printData;
+
         TF_DEBUG(PLUG_INFO_SEARCH).
             Msg("Failed to open plugin info %s\n", pathname.c_str());
         return false;
@@ -170,16 +199,23 @@ _ReadPlugInfoObject(const std::string& pathname, JsObject* result)
 
     // Validate.
     if (plugInfo.IsNull()) {
+        //std::cout << "base\\plug\\info.cpp   ReadPlugInfoObject: Plugin info file couldn't be read !!!!!!!!\n";
         TF_RUNTIME_ERROR("Plugin info file %s couldn't be read "
                          "(line %d, col %d): %s", pathname.c_str(),
                          error.line, error.column, error.reason.c_str());
     }
     else if (!plugInfo.IsObject()) {
+        //std::cout << "base\\plug\\info.cpp   ReadPlugInfoObject: The contents didn't evaluate to a json object....\n";
         // The contents didn't evaluate to a json object....
         TF_RUNTIME_ERROR("Plugin info file %s did not contain a JSON object",
                          pathname.c_str());
     }
     else {
+        std::string printData = "_ReadPlugInfoObject: pathname = ";
+        printData += TrimUsdResourcePath(pathname);
+        printData += "READED CORRECTLY\n";
+        std::cout << printData;
+
         *result = plugInfo.GetJsObject();
     }
     return true;
@@ -200,6 +236,11 @@ _ReadPlugInfo(_ReadContext* context, std::string pathname)
     if (*pathname.rbegin() == '/') {
         pathname = pathname + _Tokens->PlugInfoName.GetString();
     }
+
+    std::string printData = "_ReadPlugInfo, pathname = ";
+    printData += TrimUsdResourcePath(pathname);
+    printData += "\n";
+    std::cout << printData;
 
     // Ignore redundant reads.  This also prevents infinite recursion.
     if (!context->addVisitedPath(pathname)) {
@@ -363,6 +404,7 @@ _ReadPlugInfoWithWildcards(_ReadContext* context, const std::string& pathname)
 
     // Fail if pathname is not absolute.
     if (TfIsRelativePath(pathname)) {
+        //std::cout << "base\\plug\\info.cpp   _ReadPlugInfoWithWildcards: Fail if pathname is not absolute.\n";
         TF_RUNTIME_ERROR("Plugin info file %s is not absolute",
                          pathname.c_str());
         return;
@@ -381,6 +423,11 @@ _ReadPlugInfoWithWildcards(_ReadContext* context, const std::string& pathname)
     if (i == std::string::npos) {
         TF_DEBUG(PLUG_INFO_SEARCH).
             Msg("Globbing plugin info path %s\n", pathname.c_str());
+
+        std::string printData = "_ReadPlugInfoWithWildcards: PLUG_INFO_SEARCH for pathname = ";
+        printData += TrimUsdResourcePath(pathname);
+        printData += "\n";
+        std::cout << printData;
 
         // Yes, no recursive searches so do the glob.
         for (const auto& match : TfGlob(pathname, 0)) {
@@ -418,7 +465,7 @@ _ReadPlugInfoWithWildcards(_ReadContext* context, const std::string& pathname)
                          pathname.c_str(), pattern.c_str(), e.what());
         return;
     }
-
+    //std::cout << "base\\plug\\info.cpp   _ReadPlugInfoWithWildcards: Walk filesystem.\n";
     // Walk filesystem.
     TF_DEBUG(PLUG_INFO_SEARCH).
         Msg("Recursively walking plugin info path %s\n", pathname.c_str());
@@ -705,6 +752,10 @@ Plug_ReadPlugInfo(
         if (pathname.empty()) {
             continue;
         }
+        std::string printData = "Plug_ReadPlugInfo: READ PATH: ";
+        printData += TrimUsdResourcePath(pathname);
+        printData += "\n";
+        std::cout << printData;
 
         // For convenience we allow given paths that are directories but don't
         // end in "/" to be handled as directories.  Paths containing wildcards

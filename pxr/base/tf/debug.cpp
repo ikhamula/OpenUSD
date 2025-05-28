@@ -117,15 +117,15 @@ public:
             "%s: %s\n", TF_FUNC_NAME().c_str(), name.c_str());
 
         tbb::spin_mutex::scoped_lock lock(_tableMutex);
-        if (!_registeredNames.emplace(name, description).second) {
-            lock.release();
-            TF_FATAL_ERROR(
-                "[TF_DEBUG_ENVIRONMENT_SYMBOL] multiple debug symbol "
-                "definitions for '%s'.  This is usually due to software "
-                "misconfiguration, such as multiple versions of the same "
-                "shared library loaded simultaneously in the process.  "
-                "Please check your build configuration.", name.c_str());
-        }
+        //if (!_registeredNames.emplace(name, description).second) {
+        //    lock.release();
+        //    TF_FATAL_ERROR(
+        //        "[TF_DEBUG_ENVIRONMENT_SYMBOL] multiple debug symbol "
+        //        "definitions for '%s'.  This is usually due to software "
+        //        "misconfiguration, such as multiple versions of the same "
+        //        "shared library loaded simultaneously in the process.  "
+        //        "Please check your build configuration.", name.c_str());
+        //}
         
         // Ensure that the symbol address is known.  We don't need to check
         // enabled state here and push it out; we can wait until it's needed.

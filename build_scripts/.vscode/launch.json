@@ -11,6 +11,9 @@
             "program": "${workspaceFolder}/build_usd.py",
             "console": "integratedTerminal",
             "args": ["C:\\PROJECTS\\OpenUSD_Emscripten_BUILD", "--build-monolithic", "--no-python", "--no-imaging", "--no-materialx", "--no-examples", "--no-tutorials", "--build-variant", "release", "-j4", "--emscripten-build"]
+
+            // for Windows build
+            //  "args": ["C:\\PROJECTS\\OpenUSD_Emscripten_WND_BUILD", "--build-monolithic", "--no-python", "--no-imaging", "--no-materialx", "--no-examples", "--no-tutorials", "--build-variant", "debug", "-j4"]
         }
     ]
 }

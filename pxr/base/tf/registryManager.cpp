@@ -120,6 +120,7 @@
 #include <mutex>
 #include <set>
 #include <vector>
+#include <iostream>
 
 using std::list;
 using std::map;
@@ -291,7 +292,6 @@ void
 Tf_RegistryManagerImpl::ClearActiveLibrary(const char* libraryName)
 {
     TF_AXIOM(libraryName && libraryName[0]);
-
     // If the name doesn't match then libraryName has already been processed.
     if (_active.local().name == libraryName) {
         std::lock_guard<std::recursive_mutex> lock(_mutex);
@@ -305,6 +305,7 @@ Tf_RegistryManagerImpl::AddRegistrationFunction(
     RegistrationFunction func,
     const char* typeName)
 {
+    //std::cout << "START AddRegistrationFunction: libName = " << libraryName << " typeName = " << typeName << "\n";
     if (!TF_VERIFY(libraryName && libraryName[0],
                       "TfRegistryManager: "
                       "Ignoring library with no name")) {
@@ -326,7 +327,6 @@ Tf_RegistryManagerImpl::AddRegistrationFunction(
         std::lock_guard<std::recursive_mutex> lock(_mutex);
         _ProcessLibraryNoLock();
     }
-
     if (!active.identifier) {
         TF_DEBUG(TF_DISCOVERY_TERSE).
             Msg("TfRegistryManager: "
@@ -341,7 +341,6 @@ Tf_RegistryManagerImpl::AddRegistrationFunction(
         active.identifier = _RegisterLibraryNoLock(libraryName);
     }
     TF_AXIOM(active.identifier);
-
     active.registrationFunctions[typeName].
         push_back(_RegistrationValue(func, active.identifier));
 }
@@ -479,14 +478,11 @@ Tf_RegistryManagerImpl::_RunRegistrationFunctionsNoLock(const string& typeName)
     while (!_registrationWorklist.empty()) {
         _RegistrationValue value = _registrationWorklist.front();
         _registrationWorklist.pop_front();
-
         _UnloadFunctionList* oldUnloadList = _currentUnloadList.local();
         _currentUnloadList.local() = &_unloadFunctions[value.unloadKey];
-
         _mutex.unlock();
         value.function(NULL, NULL);
         _mutex.lock();
-
         _currentUnloadList.local() = oldUnloadList;
     }
 }
@@ -587,8 +583,10 @@ TfRegistryManager::_UnsubscribeFrom(const type_info& ti)
 void
 Tf_RegistryInitCtor(char const *name)
 {
+    std::cout << std::string("...Tf_RegistryInitCtor(") << name << ")   ";
     // Finished registering functions.
     if (TfSingleton<Tf_RegistryManagerImpl>::CurrentlyExists()) {
+        std::cout << "call ClearActiveLibrary()\n";
         Tf_RegistryManagerImpl::GetInstance().ClearActiveLibrary(name);
     }
 }

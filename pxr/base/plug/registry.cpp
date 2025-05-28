@@ -30,6 +30,7 @@
 #include <tbb/spin_mutex.h>
 
 #include <functional>
+#include <iostream>
 
 using std::pair;
 using std::string;
@@ -269,8 +270,8 @@ PlugPlugin::_RegisterAllPlugins()
 
     static std::once_flag once;
     std::call_once(once, [&result](){
+        std::cout << "          DO std::call_once\n";
         PlugRegistry &registry = PlugRegistry::GetInstance();
-
         if (!TfGetenvBool("PXR_DISABLE_STANDARD_PLUG_SEARCH_PATH", false)) {
             // Emit any debug messages first, then call _RegisterPlugins.
             for (std::string const &msg:
@@ -278,19 +279,31 @@ PlugPlugin::_RegisterAllPlugins()
                 TF_DEBUG(PLUG_INFO_SEARCH).Msg("%s", msg.c_str());
             }
             // Register plugins in the tree. This declares TfTypes.
+
+            auto& paths = Plug_GetPathsInfo().paths;
+
+            for (auto& p : paths)
+            {
+                std::cout << "--------- " << p << "\n";
+            }
+
             result = registry._RegisterPlugins(
                 Plug_GetPathsInfo().paths,
                 Plug_GetPathsInfo().pathsAreOrdered);
         }
+        std::cout << "          PlugPluginPtrVector result size = " << result.size() << "\n";
+        std::cout << "          END std::call_once\n";
     });
 
-
+    std::cout << "base\\plug\\registry.cpp  BEFORE PlugNotice::DidRegisterPlugins------------\n";
     // Send a notice outside of the call_once.  We don't want to be holding
     // a lock (even an implicit one) when sending a notice.
     if (!result.empty()) {
-        PlugNotice::DidRegisterPlugins(result).Send(
-            TfCreateWeakPtr(&PlugRegistry::GetInstance()));
+        auto regPlug = PlugNotice::DidRegisterPlugins(result);
+        std::cout << "          PlugNotice::DidRegisterPlugins(result);\n";
+        regPlug.Send(TfCreateWeakPtr(&PlugRegistry::GetInstance()));
     }
+    std::cout << "base\\plug\\registry.cpp  AFTER PlugNotice::DidRegisterPlugins-------------\n";
 }
 
 TF_REGISTRY_FUNCTION(TfType)

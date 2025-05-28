@@ -19,6 +19,8 @@
 #include <functional>
 #include <typeinfo>
 
+#include <iostream>
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 /// \class TfRegistryManager
@@ -158,11 +160,21 @@ public:
 // Define a registry function outside of a template.  Follow the macro with
 // the body of the function inside braces.  KEY_TYPE must be a type and NAME
 // must be a valid C++ name.
+#if !defined(__EMSCRIPTEN__) 
 #define TF_REGISTRY_DEFINE(KEY_TYPE, NAME)                                     \
     static void TF_PP_CAT(_Tf_RegistryFunction, NAME)(KEY_TYPE*, void*);       \
     ARCH_CONSTRUCTOR(TF_PP_CAT(_Tf_RegistryAdd, NAME),                         \
                      TF_REGISTRY_PRIORITY, KEY_TYPE*)                          \
     {                                                                          \
+        std::string dataStr = "Tf_RegistryInit::Add(";                         \
+        dataStr += TF_PP_STRINGIZE(MFB_ALT_PACKAGE_NAME);                      \
+        dataStr += ", ";                                                       \
+        dataStr += "_Tf_RegistryFunction";                                     \
+        dataStr += TF_PP_STRINGIZE(NAME);                                      \
+        dataStr += ", ";                                                       \
+        dataStr += TF_PP_STRINGIZE(KEY_TYPE);                                  \
+        dataStr += ")\n";                                                      \
+        std::cout << dataStr;                                                  \
         Tf_RegistryInit::Add(TF_PP_STRINGIZE(MFB_ALT_PACKAGE_NAME),            \
                              (void(*)(KEY_TYPE*, void*))                       \
                              TF_PP_CAT(_Tf_RegistryFunction, NAME),            \
@@ -171,18 +183,102 @@ public:
     _ARCH_ENSURE_PER_LIB_INIT(Tf_RegistryStaticInit, _tfRegistryInit);         \
     static void TF_PP_CAT(_Tf_RegistryFunction, NAME)(KEY_TYPE*, void*)
 
+#else // #if defined(__EMSCRIPTEN__)  
+
+#include <vector>
+
+namespace
+{
+    struct Tf_RegistryStaticInitEmscripten
+    {
+        std::string packageName;
+        Tf_RegistryStaticInitEmscripten(const char* pckg)
+            : packageName(pckg)
+        {
+        }
+
+        ~Tf_RegistryStaticInitEmscripten()
+        {
+            Tf_RegistryInitDtor(packageName.c_str());
+        }
+
+        void RegisterCtor()
+        {
+            Tf_RegistryInitCtor(packageName.c_str());
+        }
+    };
+}
+
+class EmscriptenRegisterHelper
+{
+    EmscriptenRegisterHelper() = default;
+    EmscriptenRegisterHelper(const EmscriptenRegisterHelper&) = delete;
+    EmscriptenRegisterHelper& operator=(const EmscriptenRegisterHelper&) = delete;
+public:
+    static EmscriptenRegisterHelper& Inst()
+    {
+        static EmscriptenRegisterHelper obj;
+        return obj;
+    }
+
+    static void Register()
+    {
+        Inst().RunRegister();
+    }
+
+    std::vector<Tf_RegistryStaticInitEmscripten> registryObjectsVec;
+
+private:
+    void RunRegister()
+    {
+        std::cout << "..........std::vector<Tf_RegistryStaticInitEmscripten> registryObjectsVec size = " << registryObjectsVec.size() << "\n";
+        for (auto& regInit : registryObjectsVec)
+        {
+            regInit.RegisterCtor();
+        }
+    }
+};
+
+#define TF_REGISTRY_DEFINE(KEY_TYPE, NAME)                                     \
+    static void TF_PP_CAT(_Tf_RegistryFunction, NAME)(KEY_TYPE*, void*);       \
+    struct TF_PP_CAT(_Tf_RegistryClass_, NAME) {                               \
+        TF_PP_CAT(_Tf_RegistryClass_, NAME)() {                                \
+            std::string dataStr = "Tf_RegistryInit::Add(";                     \
+            dataStr += TF_PP_STRINGIZE(MFB_ALT_PACKAGE_NAME);                  \
+            dataStr += ", ";                                                   \
+            dataStr += "_Tf_RegistryFunction";                                 \
+            dataStr += TF_PP_STRINGIZE(NAME);                                  \
+            dataStr += ", ";                                                   \
+            dataStr += TF_PP_STRINGIZE(KEY_TYPE);                              \
+            dataStr += ")\n";                                                  \
+            std::cout << dataStr;                                              \
+            Tf_RegistryInit::Add(TF_PP_STRINGIZE(MFB_ALT_PACKAGE_NAME),        \
+                                 (void(*)(KEY_TYPE*, void*))                   \
+                                 TF_PP_CAT(_Tf_RegistryFunction, NAME),        \
+                                 TF_PP_STRINGIZE(KEY_TYPE));                   \
+            EmscriptenRegisterHelper::Inst()                                   \
+                .registryObjectsVec                                            \
+                .emplace_back(TF_PP_STRINGIZE(MFB_ALT_PACKAGE_NAME));          \
+        }                                                                      \
+    };                                                                         \
+    static TF_PP_CAT(_Tf_RegistryClass_, NAME)                                 \
+        TF_PP_CAT(_tf_RegistryObject_, NAME);                                  \
+    static void TF_PP_CAT(_Tf_RegistryFunction, NAME)(KEY_TYPE*, void*)
+
+#endif
 
 // _______________REVIEW REQUIRED__________________________________________
-#if defined(__EMSCRIPTEN__)
+//#if defined(__EMSCRIPTEN__) // 
+//
+//// WebAssembly-safe stub macro
+//#define TF_REGISTRY_FUNCTION(KEY_TYPE) \
+//    [[maybe_unused]] static void TF_PP_CAT(_TfRegistryStub_, __COUNTER__)(void)
+//
+//#define TF_REGISTRY_FUNCTION_WITH_TAG(KEY_TYPE, TAG) \
+//    [[maybe_unused]] static void TF_PP_CAT(_TfRegistryStub_, __COUNTER__)(void)
+//
+//#else
 
-// WebAssembly-safe stub macro
-#define TF_REGISTRY_FUNCTION(KEY_TYPE) \
-    [[maybe_unused]] static void TF_PP_CAT(_TfRegistryStub_, __COUNTER__)(void)
-
-#define TF_REGISTRY_FUNCTION_WITH_TAG(KEY_TYPE, TAG) \
-    [[maybe_unused]] static void TF_PP_CAT(_TfRegistryStub_, __COUNTER__)(void)
-
-#else
 /// Define a function that is called on demand by \c TfRegistryManager.
 ///
 /// This is a simpler form of TF_REGISTRY_FUNCTION_WITH_TAG() that provides
@@ -254,7 +350,14 @@ public:
 #define TF_REGISTRY_FUNCTION_WITH_TAG(KEY_TYPE, TAG) \
     TF_REGISTRY_DEFINE(KEY_TYPE, TF_PP_CAT(TAG, __LINE__))
 
-#endif // if __EMSCRIPTEN__
+//#endif // if __EMSCRIPTEN__
+
+//// WebAssembly-safe stub macro
+//#define TF_REGISTRY_FUNCTION(KEY_TYPE) \
+//    [[maybe_unused]] static void TF_PP_CAT(_TfRegistryStub_, __COUNTER__)(void)
+//
+//#define TF_REGISTRY_FUNCTION_WITH_TAG(KEY_TYPE, TAG) \
+//    [[maybe_unused]] static void TF_PP_CAT(_TfRegistryStub_, __COUNTER__)(void)
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

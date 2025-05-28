@@ -329,7 +329,11 @@ function(_install_resource_files NAME pluginInstallPrefix pluginToLibraryPath)
         if (PXR_ENABLE_JS_SUPPORT)
             string(REGEX REPLACE "^lib\\/" "/" LOCAL_PATH "${resourcesPath}")
 
-            list(APPEND EMSCRIPTEN_RESOURCE_FILES "--preload-file ${EMSCRIPTEN_RESOURCE_FILE}@${LOCAL_PATH}/${dirPath}/${destFileName}")
+            set(PRELOAD_SPEC "--preload-file ${EMSCRIPTEN_RESOURCE_FILE}@${LOCAL_PATH}/${dirPath}/${destFileName}")
+            list(APPEND EMSCRIPTEN_RESOURCE_FILES ${PRELOAD_SPEC})
+
+            # 🔍 Add print to show mapping
+            message(STATUS "[WASM preload] Host: ${EMSCRIPTEN_RESOURCE_FILE} → VFS: ${LOCAL_PATH}/${dirPath}/${destFileName}")
         endif()
 
         install(

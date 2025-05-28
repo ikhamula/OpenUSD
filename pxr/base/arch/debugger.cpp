@@ -43,6 +43,7 @@
 #endif
 #include <atomic>
 
+#include <iostream>
 #if defined(__EMSCRIPTEN__)
 #define ARCH_NO_DEBUGGER
 #endif
@@ -654,6 +655,7 @@ void
 ArchAbort(bool logging)
 {
 #ifdef ARCH_NO_DEBUGGER
+    std::cout << "ARCH_NO_DEBUGGER ABORT()";
     abort();
 #else
     if (!_ArchAvoidJIT() || ArchDebuggerIsAttached()) {

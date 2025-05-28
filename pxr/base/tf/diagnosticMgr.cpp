@@ -32,6 +32,10 @@
 #include <thread>
 #include <memory>
 
+#if defined(__EMSCRIPTEN__)
+#include <iostream>
+#endif
+
 using std::list;
 using std::string;
 
@@ -384,19 +388,32 @@ void TfDiagnosticMgr::PostFatal(TfCallContext const &context,
     }
 
     if (statusCode == TF_DIAGNOSTIC_CODING_ERROR_TYPE) {
+#if !defined(__EMSCRIPTEN__)
         fprintf(stderr, "Fatal coding error: %s [%s], in %s(), %s:%zu\n",
                 msg.c_str(), ArchGetProgramNameForErrors(),
                 context.GetFunction(), context.GetFile(), context.GetLine());
+#else
+        std::cout << "Fatal coding error: " << msg << " [" << ArchGetProgramNameForErrors() << "], in "
+            << context.GetFunction() << "(), " << context.GetFile() << ":" << context.GetLine() << std::endl;
+#endif
     }
     else if (statusCode == TF_DIAGNOSTIC_RUNTIME_ERROR_TYPE) {
+#if !defined(__EMSCRIPTEN__)
         fprintf(stderr, "Fatal error: %s [%s].\n",
                 msg.c_str(), ArchGetProgramNameForErrors());
+#else
+        std::cout << "Fatal error: " << msg << " [" << ArchGetProgramNameForErrors() << "]." << std::endl;
+#endif
         exit(1);
     }
     else {
+#if !defined(__EMSCRIPTEN__)
         // Report and log information about the fatal error
         TfLogCrash("FATAL ERROR", msg, std::string() /*additionalInfo*/,
                    context, true /*logToDB*/);
+#else
+        std::cout << "FATAL ERROR: " << msg << "\n";
+#endif
     }
     
     // Abort, but avoid the signal handler, since we've already logged the

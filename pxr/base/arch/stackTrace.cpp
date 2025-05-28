@@ -1009,6 +1009,9 @@ _ArchLogProcessStateHelper(bool isFatal,
                            const char* message = nullptr,
                            const char* extraLogMsg = nullptr)
 {
+#if defined(__EMSCRIPTEN__)
+    return;
+#endif
     static std::atomic_flag busy = ATOMIC_FLAG_INIT;
 
     // Disallow recursion and allow only one thread at a time.
